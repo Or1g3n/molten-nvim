@@ -513,7 +513,7 @@ class MoltenKernel:
                     "success": output.success,
                     "execution_count": output.execution_count,
                 }
-                # Store result in a Lua global temporarily for the callback
+                # Call the Lua callback function with the result
                 self.nvim.exec_lua(
                     """
                     local callback, result = ...

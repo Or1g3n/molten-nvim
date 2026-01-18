@@ -551,7 +551,10 @@ class Molten:
         # If kernel_name is provided, try to use it
         if kernel_name is not None:
             kernels = self._get_current_buf_kernels(True)
-            assert kernels is not None
+            if kernels is None:
+                raise MoltenException(
+                    "Molten is not initialized in this buffer; run `:MoltenInit` to initialize."
+                )
             if kernel_name in [k.kernel_id for k in kernels]:
                 self._do_evaluate_expr(kernel_name, code, callback=callback)
                 return
@@ -566,9 +569,9 @@ class Molten:
         else:
             # Multiple kernels or no kernel - use kernel_check (no callback support in this case)
             if callback is not None:
-                notify_warn(
-                    self.nvim,
-                    "Callback not supported when multiple kernels are attached. Please specify kernel explicitly.",
+                raise MoltenException(
+                    "Callback not supported when multiple kernels are attached or no kernel initialized. "
+                    "Please specify the kernel explicitly: vim.fn.MoltenEvaluateArgument(kernel, code, opts)"
                 )
             self.kernel_check(f"MoltenEvaluateArgument %k {code}", self.nvim.current.buffer)
 
