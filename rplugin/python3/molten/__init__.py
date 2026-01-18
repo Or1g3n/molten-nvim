@@ -20,6 +20,14 @@ from molten.runtime import get_available_kernels
 from molten.utils import MoltenException, notify_error, notify_info, notify_warn, nvimui
 from pynvim import Nvim
 
+# Mapping from OutputStatus enum to string for MoltenGetOutput
+OUTPUT_STATUS_MAP = {
+    OutputStatus.HOLD: "hold",
+    OutputStatus.RUNNING: "running",
+    OutputStatus.DONE: "done",
+    OutputStatus.NEW: "new",
+}
+
 
 @pynvim.plugin
 class Molten:
@@ -1156,14 +1164,8 @@ class Molten:
             lines = lines[1:]  # Remove header
             text = "\n".join(lines)
 
-            # Convert status enum to string
-            status_map = {
-                OutputStatus.HOLD: "hold",
-                OutputStatus.RUNNING: "running",
-                OutputStatus.DONE: "done",
-                OutputStatus.NEW: "new",
-            }
-            status_str = status_map.get(output.status, "unknown")
+            # Convert status enum to string using module-level constant
+            status_str = OUTPUT_STATUS_MAP.get(output.status, "unknown")
 
             return {
                 "status": status_str,

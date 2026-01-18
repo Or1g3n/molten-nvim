@@ -476,19 +476,20 @@ class MoltenKernel:
             "\n".join(self.nvim.current.buffer.api.get_lines(0, -1, True)).encode("utf-8")
         ).hexdigest()
 
+    def _get_output_text(self, cell: CodeCell) -> str:
+        """Get plain text output for a cell, with header removed."""
+        if cell not in self.outputs:
+            return ""
+
+        outbuf: OutputBuffer = self.outputs[cell]
+        bufno = cell.bufno
+        lines, _ = outbuf.build_output_text((0, 0), bufno, False)
+        lines = lines[1:]  # Remove header
+        return "\n".join(lines)
+
     def _fire_output_done_autocmd(self, cell: CodeCell, output) -> None:
         """Fire the MoltenOutputDone autocmd when output completes."""
-        # Build output text for the autocmd
-        if cell in self.outputs:
-            outbuf: OutputBuffer = self.outputs[cell]
-            # Get the buffer number from the cell
-            bufno = cell.bufno
-            # build the plain-text output
-            lines, _ = outbuf.build_output_text((0, 0), bufno, False)
-            lines = lines[1:]  # Remove header
-            output_text = "\n".join(lines)
-        else:
-            output_text = ""
+        output_text = self._get_output_text(cell)
 
         # Fire the autocmd
         self._doautocmd(
