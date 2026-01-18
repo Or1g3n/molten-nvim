@@ -491,9 +491,8 @@ class Molten:
     @pynvim.command("MoltenEvaluateArgument", nargs="*", sync=True)  # type: ignore
     @nvimui
     def commnand_molten_evaluate_argument(self, args: List[str]) -> None:
-        if len(args) > 0 and args[0] in map(
-            lambda x: x.kernel_id, self.buffers[self.nvim.current.buffer.number]
-        ):
+        kernels = self.buffers.get(self.nvim.current.buffer.number, [])
+        if len(args) > 0 and args[0] in map(lambda x: x.kernel_id, kernels):
             self._do_evaluate_expr(args[0], " ".join(args[1:]))
         else:
             self.kernel_check(
