@@ -504,7 +504,7 @@ class Molten:
     @nvimui
     def function_evaluate_argument(self, args: List[Any]) -> None:
         """Function form of MoltenEvaluateArgument with callback support.
-        
+
         Can be called as:
         - vim.fn.MoltenEvaluateArgument(code, {on_done = callback})
         - vim.fn.MoltenEvaluateArgument(kernel, code, {on_done = callback})
@@ -562,9 +562,7 @@ class Molten:
                     self.nvim,
                     "Callback not supported when multiple kernels are attached. Please specify kernel explicitly.",
                 )
-            self.kernel_check(
-                f"MoltenEvaluateArgument %k {code}", self.nvim.current.buffer
-            )
+            self.kernel_check(f"MoltenEvaluateArgument %k {code}", self.nvim.current.buffer)
 
     @pynvim.command("MoltenEvaluateVisual", nargs="*", sync=True)  # type: ignore
     @nvimui  # type: ignore
@@ -666,9 +664,10 @@ class Molten:
             )
         elif len(kernels) == 1:
             import re
-            pat = r'(^|[^\\])%k'
+
+            pat = r"(^|[^\\])%k"
             c = re.sub(pat, lambda x: x[1] + kernels[0].kernel_id, command)
-            c = c.replace(r"\%k", "%k") # un-escape escaped chars
+            c = c.replace(r"\%k", "%k")  # un-escape escaped chars
             self.nvim.command(c)
         else:
             PROMPT = "Please select a kernel:"
@@ -1112,7 +1111,7 @@ class Molten:
             # build the plain-text output (not virtual; shape is unused when virtual=False)
             bufno = self.nvim.current.buffer.number
             lines, _ = outbuf.build_output_text((0, 0), bufno, False)
-            lines = lines[1:] # Remove header
+            lines = lines[1:]  # Remove header
             if not lines:
                 notify_warn(
                     self.nvim,
@@ -1132,7 +1131,7 @@ class Molten:
     def function_get_output(self, _args: List[Any]) -> Optional[Dict[str, Any]]:
         """
         Get the output of the cell under the cursor.
-        
+
         Returns:
         {
             status = "done",  -- or "running", "hold", "new"
@@ -1152,13 +1151,13 @@ class Molten:
 
             outbuf: OutputBuffer = kern.outputs[cell]
             output = outbuf.output
-            
+
             # build the plain-text output (not virtual; shape is unused when virtual=False)
             bufno = self.nvim.current.buffer.number
             lines, _ = outbuf.build_output_text((0, 0), bufno, False)
             lines = lines[1:]  # Remove header
             text = "\n".join(lines)
-            
+
             # Convert status enum to string
             status_str = ""
             match output.status:
@@ -1170,12 +1169,12 @@ class Molten:
                     status_str = "done"
                 case OutputStatus.NEW:
                     status_str = "new"
-            
+
             return {
                 "status": status_str,
                 "success": output.success,
                 "output": text,
                 "execution_count": output.execution_count,
             }
-        
+
         return None

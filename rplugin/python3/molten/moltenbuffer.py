@@ -478,7 +478,7 @@ class MoltenKernel:
     def _fire_output_done_autocmd(self, cell: CodeCell, output) -> None:
         """Fire the MoltenOutputDone autocmd when output completes."""
         from molten.outputbuffer import OutputBuffer
-        
+
         # Build output text for the autocmd
         if cell in self.outputs:
             outbuf: OutputBuffer = self.outputs[cell]
@@ -490,7 +490,7 @@ class MoltenKernel:
             output_text = "\n".join(lines)
         else:
             output_text = ""
-        
+
         # Fire the autocmd
         self._doautocmd(
             "MoltenOutputDone",
@@ -503,7 +503,7 @@ class MoltenKernel:
                 }
             },
         )
-        
+
         # Call the callback if one was registered for this cell
         if cell in self.cell_callbacks:
             callback = self.cell_callbacks[cell]
