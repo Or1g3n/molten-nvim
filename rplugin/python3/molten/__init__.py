@@ -491,8 +491,8 @@ class Molten:
     @pynvim.command("MoltenEvaluateArgument", nargs="*", sync=True)  # type: ignore
     @nvimui
     def commnand_molten_evaluate_argument(self, args: List[str]) -> None:
-        kernels = self.buffers.get(self.nvim.current.buffer.number, [])
-        if len(args) > 0 and args[0] in map(lambda x: x.kernel_id, kernels):
+        kernels = self.buffers.get(self.nvim.current.buffer.number)
+        if kernels and len(args) > 0 and args[0] in map(lambda x: x.kernel_id, kernels):
             self._do_evaluate_expr(args[0], " ".join(args[1:]))
         else:
             self.kernel_check(
@@ -1158,16 +1158,13 @@ class Molten:
             text = "\n".join(lines)
 
             # Convert status enum to string
-            status_str = ""
-            match output.status:
-                case OutputStatus.HOLD:
-                    status_str = "hold"
-                case OutputStatus.RUNNING:
-                    status_str = "running"
-                case OutputStatus.DONE:
-                    status_str = "done"
-                case OutputStatus.NEW:
-                    status_str = "new"
+            status_map = {
+                OutputStatus.HOLD: "hold",
+                OutputStatus.RUNNING: "running",
+                OutputStatus.DONE: "done",
+                OutputStatus.NEW: "new",
+            }
+            status_str = status_map.get(output.status, "unknown")
 
             return {
                 "status": status_str,

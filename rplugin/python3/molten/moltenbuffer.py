@@ -477,8 +477,6 @@ class MoltenKernel:
 
     def _fire_output_done_autocmd(self, cell: CodeCell, output) -> None:
         """Fire the MoltenOutputDone autocmd when output completes."""
-        from molten.outputbuffer import OutputBuffer
-
         # Build output text for the autocmd
         if cell in self.outputs:
             outbuf: OutputBuffer = self.outputs[cell]
@@ -525,7 +523,12 @@ class MoltenKernel:
                     result,
                 )
             except Exception as e:
-                notify_error(self.nvim, f"Error calling callback: {e}")
+                import traceback
+
+                notify_error(
+                    self.nvim,
+                    f"Error calling MoltenEvaluateArgument callback for cell in kernel {self.kernel_id}: {e}\n{traceback.format_exc()}",
+                )
             finally:
                 # Remove the callback after calling it
                 del self.cell_callbacks[cell]
