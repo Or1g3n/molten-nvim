@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 from itertools import chain
 
@@ -662,8 +663,6 @@ class Molten:
                 "Molten is not initialized in this buffer; run `:MoltenInit` to initialize."
             )
         elif len(kernels) == 1:
-            import re
-
             pat = r"(^|[^\\])%k"
             c = re.sub(pat, lambda x: x[1] + kernels[0].kernel_id, command)
             c = c.replace(r"\%k", "%k")  # un-escape escaped chars

@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import IO, Callable, List, Optional, Dict, Tuple
 from queue import Queue
 import hashlib
+import traceback
 
 from pynvim import Nvim
 from pynvim.api import Buffer
@@ -523,8 +524,6 @@ class MoltenKernel:
                     result,
                 )
             except Exception as e:
-                import traceback
-
                 notify_error(
                     self.nvim,
                     f"Error calling MoltenEvaluateArgument callback for cell in kernel {self.kernel_id}: {e}\n{traceback.format_exc()}",
