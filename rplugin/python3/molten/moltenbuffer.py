@@ -513,7 +513,17 @@ class MoltenKernel:
                     "success": output.success,
                     "execution_count": output.execution_count,
                 }
-                self.nvim.async_call(callback, result)
+                # Store result in a Lua global temporarily for the callback
+                self.nvim.exec_lua(
+                    """
+                    local callback, result = ...
+                    if type(callback) == 'function' then
+                        callback(result)
+                    end
+                    """,
+                    callback,
+                    result,
+                )
             except Exception as e:
                 notify_error(self.nvim, f"Error calling callback: {e}")
             finally:
