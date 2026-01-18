@@ -42,6 +42,7 @@ class MoltenKernel:
 
     options: MoltenOptions
     output_statuses: Dict[Optional[CodeCell], OutputStatus]
+    cell_callbacks: Dict[CodeCell, Callable]
 
     def __init__(
         self,
@@ -73,6 +74,7 @@ class MoltenKernel:
         self.output_statuses = {}
         self.should_show_floating_win = False
         self.updating_interface = False
+        self.cell_callbacks = {}
 
         self.options = options
 
@@ -243,6 +245,9 @@ class MoltenKernel:
                 self.update_interface()
                 # Update the output status
                 self.output_statuses[self.current_output] = output.status
+
+                # Fire MoltenOutputDone autocmd
+                self._fire_output_done_autocmd(self.current_output, output)
 
         if self.options.output_show_exec_time or did_stuff:
             self.update_interface()
@@ -469,6 +474,51 @@ class MoltenKernel:
         return hashlib.md5(
             "\n".join(self.nvim.current.buffer.api.get_lines(0, -1, True)).encode("utf-8")
         ).hexdigest()
+
+    def _fire_output_done_autocmd(self, cell: CodeCell, output) -> None:
+        """Fire the MoltenOutputDone autocmd when output completes."""
+        from molten.outputbuffer import OutputBuffer
+        
+        # Build output text for the autocmd
+        if cell in self.outputs:
+            outbuf: OutputBuffer = self.outputs[cell]
+            # Get the buffer number from the cell
+            bufno = cell.bufno
+            # build the plain-text output
+            lines, _ = outbuf.build_output_text((0, 0), bufno, False)
+            lines = lines[1:]  # Remove header
+            output_text = "\n".join(lines)
+        else:
+            output_text = ""
+        
+        # Fire the autocmd
+        self._doautocmd(
+            "MoltenOutputDone",
+            opts={
+                "data": {
+                    "kernel_id": self.kernel_id,
+                    "output": output_text,
+                    "success": output.success,
+                    "execution_count": output.execution_count,
+                }
+            },
+        )
+        
+        # Call the callback if one was registered for this cell
+        if cell in self.cell_callbacks:
+            callback = self.cell_callbacks[cell]
+            try:
+                result = {
+                    "output": output_text,
+                    "success": output.success,
+                    "execution_count": output.execution_count,
+                }
+                self.nvim.async_call(callback, result)
+            except Exception as e:
+                notify_error(self.nvim, f"Error calling callback: {e}")
+            finally:
+                # Remove the callback after calling it
+                del self.cell_callbacks[cell]
 
 
 def write_html_from_chunks(

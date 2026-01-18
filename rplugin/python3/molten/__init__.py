@@ -13,6 +13,7 @@ from molten.save_load import MoltenIOError, get_default_save_file, load, save
 from molten.moltenbuffer import MoltenKernel
 from molten.options import MoltenOptions
 from molten.outputbuffer import OutputBuffer
+from molten.outputchunks import OutputStatus
 from molten.position import DynamicPosition, Position
 from molten.runtime import get_available_kernels
 from molten.utils import MoltenException, notify_error, notify_info, notify_warn, nvimui
@@ -261,7 +262,7 @@ class Molten:
                     del self.buffers[buf.number]
             del self.molten_kernels[kernel.kernel_id]
 
-    def _do_evaluate_expr(self, kernel_name: str, expr):
+    def _do_evaluate_expr(self, kernel_name: str, expr, callback=None):
         self._initialize_if_necessary()
 
         kernels = self._get_current_buf_kernels(True)
@@ -281,6 +282,10 @@ class Molten:
             DynamicPosition(self.nvim, self.extmark_namespace, bufno, 0, 0),
             DynamicPosition(self.nvim, self.extmark_namespace, bufno, 0, 0, right_gravity=True),
         )
+
+        # Store callback in the kernel if provided
+        if callback is not None:
+            kernel.cell_callbacks[cell] = callback
 
         kernel.run_code(expr, cell)
 
@@ -493,6 +498,72 @@ class Molten:
         else:
             self.kernel_check(
                 f"MoltenEvaluateArgument %k {' '.join(args)}", self.nvim.current.buffer
+            )
+
+    @pynvim.function("MoltenEvaluateArgument", sync=True)  # type: ignore
+    @nvimui
+    def function_evaluate_argument(self, args: List[Any]) -> None:
+        """Function form of MoltenEvaluateArgument with callback support.
+        
+        Can be called as:
+        - vim.fn.MoltenEvaluateArgument(code, {on_done = callback})
+        - vim.fn.MoltenEvaluateArgument(kernel, code, {on_done = callback})
+        """
+        if not args:
+            raise MoltenException("MoltenEvaluateArgument requires at least one argument")
+
+        kernel_name = None
+        code = None
+        callback = None
+
+        # Parse arguments
+        if len(args) == 1:
+            # Single argument: code only
+            code = str(args[0])
+        elif len(args) == 2:
+            # Two arguments: could be (code, opts) or (kernel, code)
+            if isinstance(args[1], dict):
+                # (code, opts)
+                code = str(args[0])
+                callback = args[1].get("on_done")
+            else:
+                # (kernel, code)
+                kernel_name = str(args[0])
+                code = str(args[1])
+        elif len(args) >= 3:
+            # Three arguments: (kernel, code, opts)
+            kernel_name = str(args[0])
+            code = str(args[1])
+            if isinstance(args[2], dict):
+                callback = args[2].get("on_done")
+
+        if code is None:
+            raise MoltenException("Code to evaluate is required")
+
+        # If kernel_name is provided, try to use it
+        if kernel_name is not None:
+            kernels = self._get_current_buf_kernels(True)
+            assert kernels is not None
+            if kernel_name in [k.kernel_id for k in kernels]:
+                self._do_evaluate_expr(kernel_name, code, callback=callback)
+                return
+            else:
+                raise MoltenException(f"Kernel {kernel_name} not found")
+
+        # Otherwise, use kernel_check for auto-selection
+        kernels = self.buffers.get(self.nvim.current.buffer.number)
+        if kernels and len(kernels) == 1:
+            # Single kernel - use it directly
+            self._do_evaluate_expr(kernels[0].kernel_id, code, callback=callback)
+        else:
+            # Multiple kernels or no kernel - use kernel_check (no callback support in this case)
+            if callback is not None:
+                notify_warn(
+                    self.nvim,
+                    "Callback not supported when multiple kernels are attached. Please specify kernel explicitly.",
+                )
+            self.kernel_check(
+                f"MoltenEvaluateArgument %k {code}", self.nvim.current.buffer
             )
 
     @pynvim.command("MoltenEvaluateVisual", nargs="*", sync=True)  # type: ignore
@@ -1055,3 +1126,56 @@ class Molten:
             # set the register
             self.nvim.funcs.setreg(reg, text)
             return
+
+    @pynvim.function("MoltenGetOutput", sync=True)  # type: ignore
+    @nvimui  # type: ignore
+    def function_get_output(self, _args: List[Any]) -> Optional[Dict[str, Any]]:
+        """
+        Get the output of the cell under the cursor.
+        
+        Returns:
+        {
+            status = "done",  -- or "running", "hold", "new"
+            success = true,
+            output = "...",   -- plain text output
+            execution_count = 5,
+        }
+        """
+        kernels = self._get_current_buf_kernels(False)
+        if kernels is None:
+            return None
+
+        for kern in kernels:
+            cell = kern._get_selected_span()
+            if cell is None or cell not in kern.outputs:
+                continue
+
+            outbuf: OutputBuffer = kern.outputs[cell]
+            output = outbuf.output
+            
+            # build the plain-text output (not virtual; shape is unused when virtual=False)
+            bufno = self.nvim.current.buffer.number
+            lines, _ = outbuf.build_output_text((0, 0), bufno, False)
+            lines = lines[1:]  # Remove header
+            text = "\n".join(lines)
+            
+            # Convert status enum to string
+            status_str = ""
+            match output.status:
+                case OutputStatus.HOLD:
+                    status_str = "hold"
+                case OutputStatus.RUNNING:
+                    status_str = "running"
+                case OutputStatus.DONE:
+                    status_str = "done"
+                case OutputStatus.NEW:
+                    status_str = "new"
+            
+            return {
+                "status": status_str,
+                "success": output.success,
+                "output": text,
+                "execution_count": output.execution_count,
+            }
+        
+        return None
