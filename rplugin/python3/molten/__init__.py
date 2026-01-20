@@ -1136,7 +1136,6 @@ class Molten:
             return
 
     @pynvim.function("MoltenGetOutput", sync=True)  # type: ignore
-    @nvimui  # type: ignore
     def function_get_output(self, _args: List[Any]) -> Optional[Dict[str, Any]]:
         """
         Get the output of the cell under the cursor.
