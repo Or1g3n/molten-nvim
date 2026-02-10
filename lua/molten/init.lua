@@ -915,6 +915,292 @@ function M.molten_export_output(filepath, overwrite)
   ipynb_module.export_outputs(molten_kernel, filepath, overwrite or false)
 end
 
+--- Export outputs to .ipynb file
+---@param filepath string|nil Optional filepath (defaults to buffer.ipynb)
+---@param overwrite boolean Whether to overwrite the original file
+function M.molten_export_output(filepath, overwrite)
+  if not M.initialized then
+    utils.notify_error("Molten not initialized")
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  local kernel_id = kernel_ids[1]
+  local molten_kernel = M.molten_kernels[kernel_id]
+  
+  if not molten_kernel then
+    utils.notify_error("Kernel not found")
+    return
+  end
+  
+  -- Get default filepath if not provided
+  if not filepath or filepath == "" then
+    filepath = ipynb_module.get_default_import_export_file(bufnr)
+    if not filepath then
+      return
+    end
+  end
+  
+  ipynb_module.export_outputs(molten_kernel, filepath, overwrite or false)
+end
+
+--- Evaluate code from argument string
+---@param code string Code to execute
+function M.molten_evaluate_argument(code)
+  if not M.initialized then
+    utils.notify_error("Molten not initialized")
+    return
+  end
+  
+  if not code or code == "" then
+    utils.notify_error("No code provided")
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  local kernel_id = kernel_ids[1]
+  local molten_kernel = M.molten_kernels[kernel_id]
+  
+  if not molten_kernel then
+    utils.notify_error("Kernel not found")
+    return
+  end
+  
+  -- Get current cursor position to create cell
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local lineno = cursor[1] - 1
+  
+  -- Create a virtual cell for this expression
+  local span = {
+    begin = { lineno = lineno, colno = 0 },
+    end_pos = { lineno = lineno, colno = -1 }
+  }
+  
+  molten_kernel:run_code(code, span)
+end
+
+--- Set up operator mode evaluation
+function M.molten_evaluate_operator()
+  if not M.initialized then
+    if not M.initialize() then
+      return
+    end
+  end
+  
+  vim.o.operatorfunc = "v:lua.require'molten.init'.operatorfunc"
+  vim.api.nvim_feedkeys("g@", "n", false)
+end
+
+--- Operator function callback
+---@param motion_type string Type of motion (line, char, block)
+function M.operatorfunc(motion_type)
+  -- Get the marks for the operated text
+  local start_pos = vim.fn.getpos("'[")
+  local end_pos = vim.fn.getpos("']")
+  
+  local lineno_begin = start_pos[2]
+  local colno_begin = start_pos[3]
+  local lineno_end = end_pos[2]
+  local colno_end = end_pos[3]
+  
+  if motion_type == "line" then
+    colno_begin = 1
+    colno_end = 0  -- 0 means end of line
+  elseif motion_type == "char" then
+    -- Adjust columns
+    local line_begin = vim.fn.getline(lineno_begin)
+    local line_end = vim.fn.getline(lineno_end)
+    colno_begin = math.min(colno_begin, #line_begin)
+    colno_end = math.min(colno_end, #line_end) + 1
+  else
+    utils.notify_error(string.format("Motion type '%s' not supported", motion_type))
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  local kernel_id = kernel_ids[1]
+  local molten_kernel = M.molten_kernels[kernel_id]
+  
+  if not molten_kernel then
+    utils.notify_error("Kernel not found")
+    return
+  end
+  
+  -- Get the text in the range
+  local lines
+  if lineno_begin == lineno_end then
+    local line = vim.fn.getline(lineno_begin)
+    if colno_end == 0 then
+      lines = { line:sub(colno_begin) }
+    else
+      lines = { line:sub(colno_begin, colno_end - 1) }
+    end
+  else
+    lines = vim.api.nvim_buf_get_text(
+      bufnr,
+      lineno_begin - 1,
+      colno_begin - 1,
+      lineno_end - 1,
+      colno_end == 0 and -1 or (colno_end - 1),
+      {}
+    )
+  end
+  
+  local code = table.concat(lines, "\n")
+  
+  -- Create span
+  local span = {
+    begin = { lineno = lineno_begin - 1, colno = colno_begin - 1 },
+    end_pos = { lineno = lineno_end - 1, colno = colno_end - 1 }
+  }
+  
+  molten_kernel:run_code(code, span)
+end
+
+--- Open HTML output in browser
+function M.molten_open_in_browser()
+  if not M.initialized then
+    utils.notify_error("Molten not initialized")
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  -- Try each kernel until we find one with output at cursor
+  for _, kernel_id in ipairs(kernel_ids) do
+    local molten_kernel = M.molten_kernels[kernel_id]
+    if molten_kernel then
+      local selected_cell = molten_kernel:_get_selected_span()
+      if selected_cell and molten_kernel.outputs[selected_cell] then
+        local output_buf = molten_kernel.outputs[selected_cell]
+        
+        -- Extract HTML from chunks
+        local html = ""
+        for _, chunk in ipairs(output_buf.output.chunks) do
+          if chunk.output_type == "display_data" and chunk.jupyter_data then
+            if chunk.jupyter_data["text/html"] then
+              html = html .. chunk.jupyter_data["text/html"]
+            end
+          end
+        end
+        
+        if html ~= "" then
+          -- Write to temp file
+          local tmpfile = vim.fn.tempname() .. ".html"
+          local file = io.open(tmpfile, "w")
+          if file then
+            file:write(html)
+            file:close()
+            
+            -- Open with appropriate command
+            local open_cmd = M.options.open_cmd
+            if not open_cmd then
+              local system = vim.loop.os_uname().sysname
+              if system == "Darwin" then
+                open_cmd = "open"
+              elseif system == "Linux" then
+                open_cmd = "xdg-open"
+              else
+                open_cmd = "start"  -- Windows
+              end
+            end
+            
+            vim.fn.jobstart({ open_cmd, tmpfile }, { detach = true })
+            utils.notify_info("Opened in browser")
+            return
+          end
+        else
+          utils.notify_warn("No HTML output to open")
+          return
+        end
+      end
+    end
+  end
+  
+  utils.notify_warn("No output at cursor")
+end
+
+--- Open image in system viewer
+function M.molten_image_popup()
+  if not M.initialized then
+    utils.notify_error("Molten not initialized")
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  -- Try each kernel until we find one with output at cursor
+  for _, kernel_id in ipairs(kernel_ids) do
+    local molten_kernel = M.molten_kernels[kernel_id]
+    if molten_kernel then
+      local selected_cell = molten_kernel:_get_selected_span()
+      if selected_cell and molten_kernel.outputs[selected_cell] then
+        local output_buf = molten_kernel.outputs[selected_cell]
+        
+        -- Find image chunks
+        for _, chunk in ipairs(output_buf.output.chunks) do
+          if chunk.output_type == "display_data" and chunk.img_path then
+            -- Open with system image viewer
+            local open_cmd = M.options.open_cmd
+            if not open_cmd then
+              local system = vim.loop.os_uname().sysname
+              if system == "Darwin" then
+                open_cmd = "open"
+              elseif system == "Linux" then
+                open_cmd = "xdg-open"
+              else
+                open_cmd = "start"  -- Windows
+              end
+            end
+            
+            vim.fn.jobstart({ open_cmd, chunk.img_path }, { detach = true })
+            utils.notify_info("Opened image popup")
+            return
+          end
+        end
+        
+        utils.notify_warn("No image output to open")
+        return
+      end
+    end
+  end
+  
+  utils.notify_warn("No output at cursor")
+end
+
 --- Show kernel info
 function M.molten_info()
   if not M.initialized then
@@ -1123,6 +1409,22 @@ function M.setup()
     M.molten_export_output(opts.args ~= "" and opts.args or nil, opts.bang)
   end, { nargs = "?", bang = true })
   
+  vim.api.nvim_create_user_command("MoltenEvaluateArgument", function(opts)
+    M.molten_evaluate_argument(opts.args)
+  end, { nargs = "+" })
+  
+  vim.api.nvim_create_user_command("MoltenEvaluateOperator", function()
+    M.molten_evaluate_operator()
+  end, {})
+  
+  vim.api.nvim_create_user_command("MoltenOpenInBrowser", function()
+    M.molten_open_in_browser()
+  end, {})
+  
+  vim.api.nvim_create_user_command("MoltenImagePopup", function()
+    M.molten_image_popup()
+  end, {})
+  
   -- Vim functions for statusline integration
   vim.cmd([[
     function! MoltenRunningKernels(...)
@@ -1141,12 +1443,6 @@ function M.setup()
       return luaeval('require("molten.init").molten_available_kernels()')
     endfunction
   ]])
-  
-  -- TODO: Add remaining commands:
-  -- - MoltenEvaluateOperator
-  -- - MoltenEvaluateArgument
-  -- - MoltenOpenInBrowser
-  -- - MoltenImagePopup
 end
 
 return M
