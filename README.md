@@ -1,9 +1,8 @@
 # Molten
 
-> [!WARNING]
-> Molten is a remote plugin [read
-> this](https://github.com/benlubas/molten-nvim/blob/main/docs/Not-So-Quick-Start-Guide.md#a-note-on-remote-plugins)
-> if you don't know what that means
+> [!NOTE]
+> Molten uses a lightweight Python subprocess for Jupyter protocol communication.
+> **No `:UpdateRemotePlugins` required** - the plugin loads instantly!
 
 Molten is a fork of [Magma](https://www.github.com/dccsillag/magma-nvim), a plugin for running code
 interactively with the jupyter kernel. Molten provides an excellent repl-like experience, and an
@@ -33,7 +32,6 @@ https://github.com/benlubas/molten-nvim/assets/56943754/17ae81c0-306f-4496-bce8-
 - [wezterm.nvim](https://github.com/willothy/wezterm.nvim) is only required for the `wezterm` image
   provider
 - Required Python packages (can be installed in a venv. [read more](./docs/Virtual-Environments.md)):
-  - [`pynvim`](https://github.com/neovim/pynvim) (for the Remote Plugin API)
   - [`jupyter_client`](https://github.com/jupyter/jupyter_client) (for interacting with Jupyter)
 - Optional Python packages:
   - [`cairosvg`](https://cairosvg.org/) (for displaying SVG images with transparency)
