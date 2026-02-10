@@ -14,7 +14,8 @@ M.OutputStatus = {
 ---@param text string
 ---@return string
 local function clean_up_text(text)
-  -- Remove ANSI escape codes
+  -- Remove ANSI escape codes (CSI sequences used for terminal colors/formatting)
+  -- Pattern matches: ESC [ <optional params> <final character>
   text = text:gsub("\x1b%[[@-Z\\-_][^@-~]*[@-~]", "")
   -- Replace CRLF with LF
   text = text:gsub("\r\n", "\n")

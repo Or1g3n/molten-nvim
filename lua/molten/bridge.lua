@@ -146,14 +146,23 @@ function Bridge:on_stdout(data)
         self.buffer = self.buffer:sub(newline_pos + 1)
         
         -- Parse JSON
-        local ok, msg = pcall(vim.fn.json_decode, json_str)
-        if ok and type(msg) == "table" then
-          self:handle_message(msg)
+        local ok, msg_or_err = pcall(vim.fn.json_decode, json_str)
+        if ok and type(msg_or_err) == "table" then
+          self:handle_message(msg_or_err)
         else
           -- Log malformed JSON for debugging
           if vim.g.molten_debug then
+            local err_msg
+            if not ok then
+              err_msg = tostring(msg_or_err)
+            else
+              err_msg = "Expected table, got " .. type(msg_or_err)
+            end
             vim.schedule(function()
-              vim.notify("[Molten Bridge] Malformed JSON: " .. json_str, vim.log.levels.WARN)
+              vim.notify(
+                string.format("[Molten Bridge] Malformed JSON: %s\nData: %s", err_msg, json_str),
+                vim.log.levels.WARN
+              )
             end)
           end
         end

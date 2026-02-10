@@ -110,7 +110,12 @@ function DynamicPosition:get_colno()
   return colno
 end
 
--- Override lineno/colno to be dynamic
+-- Override lineno/colno to be dynamic properties that query the extmark
+-- Note: This is a non-standard pattern where lineno/colno appear to be properties
+-- but actually call get_lineno()/get_colno() methods. This is necessary because
+-- extmark positions change as the buffer is edited, so we need to query the
+-- current position each time these properties are accessed. These are effectively
+-- read-only properties backed by extmarks.
 DynamicPosition.__index = function(self, key)
   if key == "lineno" then
     return self:get_lineno()

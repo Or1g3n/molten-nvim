@@ -310,27 +310,36 @@ class MoltenBridge:
                             data = content.get("data", {})
                             for mime_type in ("image/png", "image/jpeg", "image/svg+xml"):
                                 if mime_type in data:
-                                    # Write image to temp file
-                                    if mime_type == "image/svg+xml":
-                                        ext = "svg"
-                                        mode = "w"
-                                    else:
-                                        ext = mime_type.split("/")[1]
-                                        mode = "wb"
-                                    
-                                    with tempfile.NamedTemporaryFile(
-                                        suffix=f".{ext}", mode=mode, delete=False
-                                    ) as f:
+                                    try:
+                                        # Write image to temp file
                                         if mime_type == "image/svg+xml":
-                                            f.write(data[mime_type])
+                                            ext = "svg"
+                                            mode = "w"
                                         else:
-                                            import base64
-                                            f.write(base64.b64decode(data[mime_type]))
-                                        temp_path = f.name
-                                    
-                                    kernel_info.allocated_files.append(temp_path)
-                                    content["data"] = content.get("data", {}).copy()
-                                    content["data"][f"{mime_type}_path"] = temp_path
+                                            # Extract extension, with validation
+                                            parts = mime_type.split("/")
+                                            if len(parts) == 2 and parts[1]:
+                                                ext = parts[1]
+                                            else:
+                                                ext = "bin"  # fallback
+                                            mode = "wb"
+                                        
+                                        with tempfile.NamedTemporaryFile(
+                                            suffix=f".{ext}", mode=mode, delete=False
+                                        ) as f:
+                                            if mime_type == "image/svg+xml":
+                                                f.write(data[mime_type])
+                                            else:
+                                                import base64
+                                                f.write(base64.b64decode(data[mime_type]))
+                                            temp_path = f.name
+                                        
+                                        kernel_info.allocated_files.append(temp_path)
+                                        content["data"] = content.get("data", {}).copy()
+                                        content["data"][f"{mime_type}_path"] = temp_path
+                                    except Exception as e:
+                                        self.log(f"Failed to write {mime_type} to file: {e}")
+                                        continue
                         
                         self.send_event(kernel_id, msg["msg_type"], content, 
                                       msg.get("parent_header"))

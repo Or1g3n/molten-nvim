@@ -137,6 +137,8 @@ function M.molten_evaluate(code)
   end
   
   -- Find the first available kernel (simplified - should handle multiple kernels per buffer)
+  -- TODO: This uses next() which has undefined iteration order. For proper multi-kernel
+  -- support, we should track the "current" or "active" kernel explicitly.
   local kernel_id = next(M.kernels)
   if not kernel_id then
     utils.notify_error("No active kernel. Run :MoltenInit first")

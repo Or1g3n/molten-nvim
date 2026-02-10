@@ -29,7 +29,27 @@ end
 --- Generate a unique request ID
 ---@return string
 function M.generate_request_id()
-  return tostring(os.time()) .. "_" .. tostring(math.random(100000, 999999))
+  -- Seed random number generator (only once)
+  -- Use os.time() for uniqueness across time, and attempt to get process ID
+  if not M._random_seeded then
+    local seed = os.time()
+    -- Try to add process ID if available (Unix-like systems)
+    local pid_ok, pid = pcall(function()
+      local f = io.popen("echo $$")
+      if f then
+        local p = tonumber(f:read("*a"))
+        f:close()
+        return p
+      end
+      return nil
+    end)
+    if pid_ok and pid then
+      seed = seed + pid
+    end
+    math.randomseed(seed)
+    M._random_seeded = true
+  end
+  return tostring(os.time()) .. "_" .. tostring(math.random(100000, 999999)) .. "_" .. tostring(os.clock())
 end
 
 --- Deep copy a table
