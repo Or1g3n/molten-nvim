@@ -915,42 +915,6 @@ function M.molten_export_output(filepath, overwrite)
   ipynb_module.export_outputs(molten_kernel, filepath, overwrite or false)
 end
 
---- Export outputs to .ipynb file
----@param filepath string|nil Optional filepath (defaults to buffer.ipynb)
----@param overwrite boolean Whether to overwrite the original file
-function M.molten_export_output(filepath, overwrite)
-  if not M.initialized then
-    utils.notify_error("Molten not initialized")
-    return
-  end
-  
-  local bufnr = vim.api.nvim_get_current_buf()
-  local kernel_ids = M.buffers[bufnr]
-  
-  if not kernel_ids or #kernel_ids == 0 then
-    utils.notify_error("No active kernel")
-    return
-  end
-  
-  local kernel_id = kernel_ids[1]
-  local molten_kernel = M.molten_kernels[kernel_id]
-  
-  if not molten_kernel then
-    utils.notify_error("Kernel not found")
-    return
-  end
-  
-  -- Get default filepath if not provided
-  if not filepath or filepath == "" then
-    filepath = ipynb_module.get_default_import_export_file(bufnr)
-    if not filepath then
-      return
-    end
-  end
-  
-  ipynb_module.export_outputs(molten_kernel, filepath, overwrite or false)
-end
-
 --- Evaluate code from argument string
 ---@param code string Code to execute
 function M.molten_evaluate_argument(code)
