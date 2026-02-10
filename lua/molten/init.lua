@@ -185,6 +185,7 @@ function M.setup_autocommands()
     end,
   })
 end
+--- Handle kernel events
 ---@param kernel_id string
 ---@param event table
 function M.handle_kernel_event(kernel_id, event)
@@ -196,23 +197,55 @@ function M.handle_kernel_event(kernel_id, event)
   local msg_type = event.msg_type
   local content = event.content
   
-  -- For now, just log events
   if vim.g.molten_debug then
     print(string.format("[Molten] Event from %s: %s", kernel_id, msg_type))
   end
   
-  -- TODO: Update output buffers based on event
-  -- This requires full OutputBuffer implementation
-  
-  if msg_type == "execute_result" or msg_type == "stream" then
-    -- Simple text output - just show a notification for now
-    if content.text then
-      utils.notify_info("Output: " .. content.text)
-    elseif content.data and content.data["text/plain"] then
-      utils.notify_info("Output: " .. content.data["text/plain"])
+  -- Update output based on message type
+  if kernel.current_output then
+    local output = kernel.current_output
+    
+    if msg_type == "execute_input" then
+      output.execution_count = content.execution_count
+      if output.status == outputchunks.OutputStatus.HOLD then
+        output.status = outputchunks.OutputStatus.RUNNING
+        output.start_time = os.time()
+      end
+      
+    elseif msg_type == "status" then
+      if content.execution_state == "idle" then
+        output.status = outputchunks.OutputStatus.DONE
+        output.end_time = os.time()
+      elseif content.execution_state == "busy" then
+        output.status = outputchunks.OutputStatus.RUNNING
+      end
+      
+    elseif msg_type == "execute_result" then
+      local chunk = outputchunks.to_outputchunk(content.data, content.metadata or {}, M.options)
+      table.insert(output.chunks, chunk)
+      
+    elseif msg_type == "stream" then
+      local chunk = outputchunks.TextOutputChunk(content.text or "")
+      table.insert(output.chunks, chunk)
+      
+    elseif msg_type == "error" then
+      output.success = false
+      local chunk = outputchunks.ErrorOutputChunk(
+        content.ename or "Error",
+        content.evalue or "",
+        content.traceback or {}
+      )
+      table.insert(output.chunks, chunk)
+      
+    elseif msg_type == "display_data" then
+      local chunk = outputchunks.to_outputchunk(content.data, content.metadata or {}, M.options)
+      table.insert(output.chunks, chunk)
+      
+    elseif msg_type == "clear_output" then
+      if not content.wait then
+        output.chunks = {}
+      end
     end
-  elseif msg_type == "error" then
-    utils.notify_error(string.format("Error: %s", content.evalue or "Unknown error"))
   end
 end
 
@@ -234,11 +267,26 @@ function M.molten_evaluate(code)
   end
   
   local kernel = M.kernels[kernel_id]
+  
+  -- Create output for this execution
+  local output = outputchunks.Output(nil)
+  output.status = outputchunks.OutputStatus.HOLD
+  kernel.current_output = output
+  
+  -- Create OutputBuffer if we don't have one for this "cell"
+  -- For now, use a simple key since we don't have full cell tracking yet
+  local output_key = "temp_" .. tostring(os.time())
+  local output_buffer = outputbuffer_module.new(M.canvas, M.extmark_namespace, M.options)
+  output_buffer.output = output
+  kernel.outputs[output_key] = output_buffer
+  
   kernel.runtime:execute(code, function(response)
     if response.success then
       utils.notify_info("Code executed")
+      -- Output will be updated via events
     else
       utils.notify_error("Failed to execute: " .. (response.message or "unknown error"))
+      kernel.current_output = nil
     end
   end)
 end
