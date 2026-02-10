@@ -35,12 +35,11 @@ source ~/.virtualenvs/neovim/bin/activate # activate the venv
 ## Install Dependencies
 
 Make sure your venv is active (you can test with `echo $VIRTUAL_ENV`) then you can install the
-python packages that relate to the types of output you want to render. Remember, `pynvim` and
-`jupyter_client` are 100% necessary, everything else is optional. You can see what each package does
-in the readme.
+python packages that relate to the types of output you want to render. Remember, `jupyter_client` is
+100% necessary, everything else is optional. You can see what each package does in the readme.
 
 ```bash
-pip install pynvim jupyter_client cairosvg plotly kaleido pnglatex pyperclip
+pip install jupyter_client cairosvg plotly kaleido pnglatex pyperclip
 ```
 
 ## Point Neovim at this Virtual Environment

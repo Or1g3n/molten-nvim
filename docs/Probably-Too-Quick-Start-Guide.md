@@ -3,7 +3,6 @@
 In stark contrast to the other guide, this one will be really quick (I promise).
 
 ## Install Python deps:
-- [`pynvim`](https://github.com/neovim/pynvim) (for the Remote Plugin API)
 - [`jupyter_client`](https://github.com/jupyter/jupyter_client) (for interacting with Jupyter)
 
 Make sure that neovim can find these (refer to [venv guide](./Virtual-Environments.md) if you have
@@ -14,13 +13,15 @@ trouble)
 {
     "benlubas/molten-nvim",
     version = "^1.0.0", -- use version <2.0.0 to avoid breaking changes
-    build = ":UpdateRemotePlugins",
     init = function()
         -- this is an example, not a default. Please see the readme for more configuration options
         vim.g.molten_output_win_max_height = 12
     end,
 },
 ```
+
+> [!NOTE]
+> No `:UpdateRemotePlugins` needed! The new Lua architecture loads instantly.
 
 ## Simple usage
 
