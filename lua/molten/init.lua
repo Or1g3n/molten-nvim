@@ -83,12 +83,12 @@ function M.molten_init(kernel_name)
   
   -- If no kernel specified, show selection prompt
   if not kernel_name or kernel_name == "" then
-    M.bridge:list_kernels(function(success, data)
-      if success and data.kernels then
+    M.bridge:list_kernels(function(msg)
+      if msg.type == "response" and msg.success and msg.kernels then
         local prompt_module = require("prompt")
         -- Convert kernel list to format expected by prompt (list of {kernel_name, is_shared})
         local kernel_choices = {}
-        for _, kname in ipairs(data.kernels) do
+        for _, kname in ipairs(msg.kernels) do
           table.insert(kernel_choices, {kname, false})
         end
         
@@ -97,10 +97,11 @@ function M.molten_init(kernel_name)
           return
         end
         
-        -- Show prompt and initialize selected kernel
+        -- Show prompt - it will call MoltenInit itself with the selected kernel
         prompt_module.prompt_init(kernel_choices, "Select a kernel:")
       else
-        utils.notify_error("Failed to list available kernels")
+        local err_msg = msg.message or "Failed to list available kernels"
+        utils.notify_error(err_msg)
       end
     end)
     return
