@@ -20,6 +20,7 @@ local images_module = require("molten.images")
 local moltenbuffer_module = require("molten.moltenbuffer")
 local save_load_module = require("molten.save_load")
 local info_window_module = require("molten.info_window")
+local ipynb_module = require("molten.ipynb")
 
 local M = {}
 
@@ -843,6 +844,77 @@ function M.molten_load(filepath)
   end
 end
 
+--- Import outputs from .ipynb file
+---@param filepath string|nil Optional filepath (defaults to buffer.ipynb)
+function M.molten_import_output(filepath)
+  if not M.initialized then
+    utils.notify_error("Molten not initialized")
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  local kernel_id = kernel_ids[1]
+  local molten_kernel = M.molten_kernels[kernel_id]
+  
+  if not molten_kernel then
+    utils.notify_error("Kernel not found")
+    return
+  end
+  
+  -- Get default filepath if not provided
+  if not filepath or filepath == "" then
+    filepath = ipynb_module.get_default_import_export_file(bufnr)
+    if not filepath then
+      return
+    end
+  end
+  
+  ipynb_module.import_outputs(molten_kernel, filepath)
+end
+
+--- Export outputs to .ipynb file
+---@param filepath string|nil Optional filepath (defaults to buffer.ipynb)
+---@param overwrite boolean Whether to overwrite the original file
+function M.molten_export_output(filepath, overwrite)
+  if not M.initialized then
+    utils.notify_error("Molten not initialized")
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  local kernel_id = kernel_ids[1]
+  local molten_kernel = M.molten_kernels[kernel_id]
+  
+  if not molten_kernel then
+    utils.notify_error("Kernel not found")
+    return
+  end
+  
+  -- Get default filepath if not provided
+  if not filepath or filepath == "" then
+    filepath = ipynb_module.get_default_import_export_file(bufnr)
+    if not filepath then
+      return
+    end
+  end
+  
+  ipynb_module.export_outputs(molten_kernel, filepath, overwrite or false)
+end
+
 --- Show kernel info
 function M.molten_info()
   if not M.initialized then
@@ -1043,6 +1115,14 @@ function M.setup()
     M.molten_info()
   end, {})
   
+  vim.api.nvim_create_user_command("MoltenImportOutput", function(opts)
+    M.molten_import_output(opts.args ~= "" and opts.args or nil)
+  end, { nargs = "?" })
+  
+  vim.api.nvim_create_user_command("MoltenExportOutput", function(opts)
+    M.molten_export_output(opts.args ~= "" and opts.args or nil, opts.bang)
+  end, { nargs = "?", bang = true })
+  
   -- Vim functions for statusline integration
   vim.cmd([[
     function! MoltenRunningKernels(...)
@@ -1065,37 +1145,8 @@ function M.setup()
   -- TODO: Add remaining commands:
   -- - MoltenEvaluateOperator
   -- - MoltenEvaluateArgument
-  -- - MoltenEvaluateRange
-  -- - MoltenImportOutput/ExportOutput
   -- - MoltenOpenInBrowser
   -- - MoltenImagePopup
-end
-  end, { bang = true })
-  
-  vim.api.nvim_create_user_command("MoltenShowOutput", function()
-    M.molten_show_output()
-  end, {})
-  
-  vim.api.nvim_create_user_command("MoltenHideOutput", function()
-    M.molten_hide_output()
-  end, {})
-  
-  vim.api.nvim_create_user_command("MoltenEnterOutput", function()
-    M.molten_enter_output()
-  end, {})
-  
-  -- TODO: Add remaining 30+ commands
-  -- - MoltenEvaluateOperator
-  -- - MoltenEvaluateArgument
-  -- - MoltenReevaluateCell
-  -- - MoltenReevaluateAll
-  -- - MoltenDelete
-  -- - MoltenNext/Prev/Goto
-  -- - MoltenToggleVirtual
-  -- - MoltenSave/Load
-  -- - MoltenImportOutput/ExportOutput
-  -- - MoltenInfo
-  -- - etc.
 end
 
 return M
