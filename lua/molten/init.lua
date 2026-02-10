@@ -81,8 +81,30 @@ function M.molten_init(kernel_name)
     end
   end
   
-  -- Default to python3 if no kernel specified
-  kernel_name = kernel_name or "python3"
+  -- If no kernel specified, show selection prompt
+  if not kernel_name or kernel_name == "" then
+    M.bridge:list_kernels(function(success, data)
+      if success and data.kernels then
+        local prompt_module = require("prompt")
+        -- Convert kernel list to format expected by prompt (list of {kernel_name, is_shared})
+        local kernel_choices = {}
+        for _, kname in ipairs(data.kernels) do
+          table.insert(kernel_choices, {kname, false})
+        end
+        
+        if #kernel_choices == 0 then
+          utils.notify_error("No Jupyter kernels found. Install a kernel with: python -m ipykernel install --user")
+          return
+        end
+        
+        -- Show prompt and initialize selected kernel
+        prompt_module.prompt_init(kernel_choices, "Select a kernel:")
+      else
+        utils.notify_error("Failed to list available kernels")
+      end
+    end)
+    return
+  end
   
   local bufnr = vim.api.nvim_get_current_buf()
   
