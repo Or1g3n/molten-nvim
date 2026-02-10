@@ -416,6 +416,49 @@ function M.molten_evaluate_visual()
   molten_kernel:run_code(code, cell)
 end
 
+--- Evaluate a specific line range (for external plugins like quarto-nvim)
+--- @param line1 number First line (1-indexed)
+--- @param line2 number Last line (1-indexed)
+function M.molten_evaluate_range(line1, line2)
+  local bufnr = vim.api.nvim_get_current_buf()
+  
+  -- Convert to 0-indexed
+  local start_line = line1 - 1
+  local end_line = line2 - 1
+  
+  -- Get lines
+  local lines = vim.api.nvim_buf_get_lines(bufnr, start_line, end_line + 1, false)
+  if #lines == 0 then
+    utils.notify_warn("No lines to evaluate")
+    return
+  end
+  
+  local code = table.concat(lines, "\n")
+  
+  -- Create cell span (full line width)
+  local begin_pos = position_module.Position(bufnr, start_line, 0)
+  local last_line_len = #lines[#lines]
+  local end_pos_obj = position_module.Position(bufnr, end_line, last_line_len)
+  
+  -- Find kernel for this buffer
+  local kernel_ids = M.buffers[bufnr]
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel. Run :MoltenInit first")
+    return
+  end
+  
+  local kernel_id = kernel_ids[1]
+  local molten_kernel = M.molten_kernels[kernel_id]
+  
+  if not molten_kernel then
+    utils.notify_error("Kernel not found")
+    return
+  end
+  
+  local cell = code_cell_module.new(begin_pos, end_pos_obj)
+  molten_kernel:run_code(code, cell)
+end
+
 --- Deinitialize a kernel
 function M.molten_deinit()
   -- Find kernel for current buffer
@@ -1405,6 +1448,18 @@ function M.setup()
     
     function! MoltenAvailableKernels()
       return luaeval('require("molten.init").molten_available_kernels()')
+    endfunction
+  ]])
+  
+  -- Vim functions for external plugin compatibility (e.g., quarto-nvim)
+  -- These wrap the Lua functions so they can be called as Vim functions
+  vim.cmd([[
+    function! MoltenEvaluateRange(line1, line2) range
+      call luaeval('require("molten.init").molten_evaluate_range(_A[1], _A[2])', [a:line1, a:line2])
+    endfunction
+    
+    function! MoltenEvaluateLine()
+      call luaeval('require("molten.init").molten_evaluate_line()')
     endfunction
   ]])
 end
