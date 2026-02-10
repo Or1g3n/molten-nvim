@@ -1,8 +1,26 @@
+# Python tooling configuration for molten-nvim
+# Only applies to scripts/molten_bridge.py (the subprocess bridge)
+
 [tool.black]
 line-length = 100
 
 [tool.pyright]
-extraPaths = ["rplugin/python3"]
+extraPaths = ["scripts"]
 
 [tool.ruff]
 line-length = 100
+
+[project]
+name = "molten-nvim"
+description = "Interactive code evaluation for Neovim with Jupyter kernels"
+requires-python = ">=3.10"
+dependencies = [
+    "jupyter_client>=7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "ruff",
+    "pyright",
+]
