@@ -72,7 +72,6 @@ version = "1.1.0",
 the [venv guide](./Virtual-Environments.md)
 
 **Absolutely necessary python packages:**
-- [`pynvim`](https://github.com/neovim/pynvim) (for the Remote Plugin API)
 - [`jupyter_client`](https://github.com/jupyter/jupyter_client) (for interacting with Jupyter)
 
 **Packages only required for their specific image support:**
@@ -108,7 +107,6 @@ return {
         "benlubas/molten-nvim",
         version = "^1.0.0", -- use version <2.0.0 to avoid breaking changes
         dependencies = { "3rd/image.nvim" },
-        build = ":UpdateRemotePlugins",
         init = function()
             -- these are examples, not defaults. Please see the readme
             vim.g.molten_image_provider = "image.nvim"
@@ -131,18 +129,9 @@ return {
 },
 ```
 
-### A Note on Remote Plugins
-
-Molten is a remote plugin. This means that the first time you install, and after you update Molten
-you need to run the `:UpdateRemotePlugins` command in Neovim. This can be done with some package
-mangers (like Lazy for example) automatically.
-
-But if things aren't working, make sure that you run that command and then restart your editor.
-
-> [!WARNING]
-> Many neovim distros disable remote plugsins in the name of performance (even regular users who
-> unknowingly copy snippets they don't understand may have remote plugins disabled). Obviously this
-> will prevent molten from working 
+> [!NOTE]
+> Molten now uses a Lua-based architecture with a lightweight Python subprocess.
+> **No `:UpdateRemotePlugins` required** - the plugin loads instantly!
 
 
 > [!WARNING]

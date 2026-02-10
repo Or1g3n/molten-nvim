@@ -69,7 +69,6 @@ so:
       ];
       extraPython3Packages = ps: with ps; [
         # ... other python packages
-        pynvim
         jupyter-client
         cairosvg # for image rendering
         pnglatex # for image rendering
@@ -101,7 +100,6 @@ let
       p.magick # for image rendering
     ];
     extraPython3Packages = p: with p; [
-      pynvim
       jupyter-client
       cairosvg # for image rendering
       ipython
