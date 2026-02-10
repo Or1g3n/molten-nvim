@@ -18,6 +18,7 @@ local code_cell_module = require("molten.code_cell")
 local outputbuffer_module = require("molten.outputbuffer")
 local images_module = require("molten.images")
 local moltenbuffer_module = require("molten.moltenbuffer")
+local save_load_module = require("molten.save_load")
 
 local M = {}
 
@@ -776,6 +777,71 @@ function M.molten_toggle_virtual()
   utils.notify_info("Virtual text output: " .. (M.options.virt_text_output and "ON" or "OFF"))
 end
 
+--- Save kernel outputs
+---@param filepath string|nil Optional filepath
+function M.molten_save(filepath)
+  if not M.initialized then
+    utils.notify_error("Molten not initialized")
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  local kernel_id = kernel_ids[1]
+  local molten_kernel = M.molten_kernels[kernel_id]
+  
+  if not molten_kernel then
+    utils.notify_error("Kernel not found")
+    return
+  end
+  
+  local success, err = save_load_module.save(molten_kernel, filepath)
+  if success then
+    utils.notify_info("Saved to " .. (filepath or "default location"))
+  else
+    utils.notify_error("Failed to save: " .. (err or "unknown error"))
+  end
+end
+
+--- Load kernel outputs
+---@param filepath string|nil Optional filepath
+function M.molten_load(filepath)
+  if not M.initialized then
+    utils.notify_error("Molten not initialized")
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  local kernel_id = kernel_ids[1]
+  local molten_kernel = M.molten_kernels[kernel_id]
+  
+  if not molten_kernel then
+    utils.notify_error("Kernel not found")
+    return
+  end
+  
+  local success, err = save_load_module.load(molten_kernel, filepath)
+  if success then
+    utils.notify_info("Loaded from " .. (filepath or "default location"))
+    molten_kernel:update_interface()
+  else
+    utils.notify_error("Failed to load: " .. (err or "unknown error"))
+  end
+end
+
 --- Get available kernels
 ---@return table
 function M.molten_available_kernels()
@@ -874,11 +940,18 @@ function M.setup()
     M.molten_toggle_virtual()
   end, {})
   
+  vim.api.nvim_create_user_command("MoltenSave", function(opts)
+    M.molten_save(opts.args ~= "" and opts.args or nil)
+  end, { nargs = "?" })
+  
+  vim.api.nvim_create_user_command("MoltenLoad", function(opts)
+    M.molten_load(opts.args ~= "" and opts.args or nil)
+  end, { nargs = "?" })
+  
   -- TODO: Add remaining commands:
   -- - MoltenEvaluateOperator
   -- - MoltenEvaluateArgument
   -- - MoltenEvaluateRange
-  -- - MoltenSave/Load
   -- - MoltenImportOutput/ExportOutput
   -- - MoltenInfo
   -- - MoltenOpenInBrowser
