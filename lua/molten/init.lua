@@ -19,6 +19,7 @@ local outputbuffer_module = require("molten.outputbuffer")
 local images_module = require("molten.images")
 local moltenbuffer_module = require("molten.moltenbuffer")
 local save_load_module = require("molten.save_load")
+local info_window_module = require("molten.info_window")
 
 local M = {}
 
@@ -842,6 +843,96 @@ function M.molten_load(filepath)
   end
 end
 
+--- Show kernel info
+function M.molten_info()
+  if not M.initialized then
+    utils.notify_error("Molten not initialized")
+    return
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    utils.notify_error("No active kernel")
+    return
+  end
+  
+  local kernel_id = kernel_ids[1]
+  local molten_kernel = M.molten_kernels[kernel_id]
+  
+  if not molten_kernel then
+    utils.notify_error("Kernel not found")
+    return
+  end
+  
+  info_window_module.show_info(molten_kernel)
+end
+
+--- Get running kernels
+---@param buf_local boolean Whether to only get kernels for current buffer
+---@return table List of kernel names
+function M.molten_running_kernels(buf_local)
+  if not M.initialized then
+    return {}
+  end
+  
+  if buf_local then
+    local bufnr = vim.api.nvim_get_current_buf()
+    local kernel_ids = M.buffers[bufnr]
+    
+    if not kernel_ids then
+      return {}
+    end
+    
+    local kernel_names = {}
+    for _, kernel_id in ipairs(kernel_ids) do
+      local molten_kernel = M.molten_kernels[kernel_id]
+      if molten_kernel then
+        table.insert(kernel_names, molten_kernel.kernel_name)
+      end
+    end
+    return kernel_names
+  else
+    local kernel_names = {}
+    for _, molten_kernel in pairs(M.molten_kernels) do
+      table.insert(kernel_names, molten_kernel.kernel_name)
+    end
+    return kernel_names
+  end
+end
+
+--- Get statusline string for kernels
+---@return string
+function M.molten_statusline_kernels()
+  if not M.initialized then
+    return ""
+  end
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    return ""
+  end
+  
+  local kernel_names = {}
+  for _, kernel_id in ipairs(kernel_ids) do
+    local molten_kernel = M.molten_kernels[kernel_id]
+    if molten_kernel then
+      table.insert(kernel_names, molten_kernel.kernel_name)
+    end
+  end
+  
+  return table.concat(kernel_names, ", ")
+end
+
+--- Get statusline init status
+---@return string
+function M.molten_statusline_init()
+  return M.initialized and "✓" or ""
+end
+
 --- Get available kernels
 ---@return table
 function M.molten_available_kernels()
@@ -948,15 +1039,36 @@ function M.setup()
     M.molten_load(opts.args ~= "" and opts.args or nil)
   end, { nargs = "?" })
   
+  vim.api.nvim_create_user_command("MoltenInfo", function()
+    M.molten_info()
+  end, {})
+  
+  -- Vim functions for statusline integration
+  vim.cmd([[
+    function! MoltenRunningKernels(...)
+      return luaeval('require("molten.init").molten_running_kernels(_A)', get(a:, 1, v:false))
+    endfunction
+    
+    function! MoltenStatusLineKernels()
+      return luaeval('require("molten.init").molten_statusline_kernels()')
+    endfunction
+    
+    function! MoltenStatusLineInit()
+      return luaeval('require("molten.init").molten_statusline_init()')
+    endfunction
+    
+    function! MoltenAvailableKernels()
+      return luaeval('require("molten.init").molten_available_kernels()')
+    endfunction
+  ]])
+  
   -- TODO: Add remaining commands:
   -- - MoltenEvaluateOperator
   -- - MoltenEvaluateArgument
   -- - MoltenEvaluateRange
   -- - MoltenImportOutput/ExportOutput
-  -- - MoltenInfo
   -- - MoltenOpenInBrowser
   -- - MoltenImagePopup
-  -- - Status functions
 end
   end, { bang = true })
   
