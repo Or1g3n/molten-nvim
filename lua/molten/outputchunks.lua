@@ -23,6 +23,17 @@ local function clean_up_text(text)
   return text
 end
 
+--- Remove text before carriage return on each line
+---@param text string
+---@return string
+local function remove_carriage_return_overwrites(text)
+  local lines = vim.split(text, "\n", { plain = true })
+  for i, line in ipairs(lines) do
+    lines[i] = line:gsub(".*\r", "")
+  end
+  return table.concat(lines, "\n")
+end
+
 ---@class OutputChunk
 ---@field output_type string
 ---@field jupyter_data table|nil
@@ -258,26 +269,14 @@ function Output:merge_text_chunks()
     if c1.text and c2.text then
       c1.text = c1.text .. c2.text
       -- Handle carriage returns (overwrite previous content on line)
-      local lines = vim.split(c1.text, "\n", { plain = true })
-      for i, line in ipairs(lines) do
-        if i < #lines then
-          lines[i] = line:gsub(".*\r", "")
-        end
-      end
-      c1.text = table.concat(lines, "\n")
+      c1.text = remove_carriage_return_overwrites(c1.text)
       c1.jupyter_data = { ["text/plain"] = c1.text }
       table.remove(self.chunks)
     end
   elseif #self.chunks > 0 then
     local c1 = self.chunks[1]
     if c1.text then
-      local lines = vim.split(c1.text, "\n", { plain = true })
-      for i, line in ipairs(lines) do
-        if i < #lines then
-          lines[i] = line:gsub(".*\r", "")
-        end
-      end
-      c1.text = table.concat(lines, "\n")
+      c1.text = remove_carriage_return_overwrites(c1.text)
     end
   end
 end

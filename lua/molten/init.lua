@@ -185,7 +185,7 @@ function M.molten_deinit()
   
   local kernel = M.kernels[kernel_id]
   kernel.runtime:shutdown(function(response)
-    if response.success or response.message == "Kernel not found" then
+    if response.success then
       M.kernels[kernel_id] = nil
       utils.notify_info("Kernel shutdown")
     else

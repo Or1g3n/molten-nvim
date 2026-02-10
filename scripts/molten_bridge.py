@@ -311,12 +311,17 @@ class MoltenBridge:
                             for mime_type in ("image/png", "image/jpeg", "image/svg+xml"):
                                 if mime_type in data:
                                     # Write image to temp file
-                                    ext = mime_type.split("/")[1]
-                                    mode = "wb" if ext != "svg+xml" else "w"
+                                    if mime_type == "image/svg+xml":
+                                        ext = "svg"
+                                        mode = "w"
+                                    else:
+                                        ext = mime_type.split("/")[1]
+                                        mode = "wb"
+                                    
                                     with tempfile.NamedTemporaryFile(
                                         suffix=f".{ext}", mode=mode, delete=False
                                     ) as f:
-                                        if ext == "svg+xml":
+                                        if mime_type == "image/svg+xml":
                                             f.write(data[mime_type])
                                         else:
                                             import base64
