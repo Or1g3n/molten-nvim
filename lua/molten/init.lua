@@ -619,6 +619,163 @@ function M.molten_delete()
   end
 end
 
+--- Get all cells sorted by position
+---@return table List of CodeCell objects
+local function get_sorted_cells()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids or #kernel_ids == 0 then
+    return {}
+  end
+  
+  local all_cells = {}
+  for _, kernel_id in ipairs(kernel_ids) do
+    local molten_kernel = M.molten_kernels[kernel_id]
+    if molten_kernel then
+      for cell in pairs(molten_kernel.outputs) do
+        table.insert(all_cells, cell)
+      end
+    end
+  end
+  
+  table.sort(all_cells, function(a, b)
+    return a.begin < b.begin
+  end)
+  
+  return all_cells
+end
+
+--- Jump to next cell
+---@param count number Number of cells to jump
+function M.molten_next(count)
+  if not M.initialized then
+    return
+  end
+  
+  count = count or 1
+  local cells = get_sorted_cells()
+  
+  if #cells == 0 then
+    return
+  end
+  
+  -- Find current cell
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local bufnr = vim.api.nvim_get_current_buf()
+  local current_pos = position_module.Position(bufnr, cursor[1] - 1, cursor[2])
+  
+  local current_idx = 0
+  for i, cell in ipairs(cells) do
+    if cell:contains(current_pos) then
+      current_idx = i
+      break
+    end
+  end
+  
+  -- Jump to next cell
+  local target_idx = current_idx + count
+  if target_idx > #cells then
+    target_idx = #cells
+  end
+  
+  if target_idx > 0 and target_idx <= #cells then
+    local target_cell = cells[target_idx]
+    vim.api.nvim_win_set_cursor(0, { target_cell.begin.lineno + 1, target_cell.begin.colno })
+  end
+end
+
+--- Jump to previous cell
+---@param count number Number of cells to jump
+function M.molten_prev(count)
+  if not M.initialized then
+    return
+  end
+  
+  count = count or 1
+  local cells = get_sorted_cells()
+  
+  if #cells == 0 then
+    return
+  end
+  
+  -- Find current cell
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local bufnr = vim.api.nvim_get_current_buf()
+  local current_pos = position_module.Position(bufnr, cursor[1] - 1, cursor[2])
+  
+  local current_idx = #cells + 1
+  for i, cell in ipairs(cells) do
+    if cell:contains(current_pos) then
+      current_idx = i
+      break
+    end
+  end
+  
+  -- Jump to previous cell
+  local target_idx = current_idx - count
+  if target_idx < 1 then
+    target_idx = 1
+  end
+  
+  if target_idx > 0 and target_idx <= #cells then
+    local target_cell = cells[target_idx]
+    vim.api.nvim_win_set_cursor(0, { target_cell.begin.lineno + 1, target_cell.begin.colno })
+  end
+end
+
+--- Jump to specific cell
+---@param index number Cell index (1-based)
+function M.molten_goto(index)
+  if not M.initialized then
+    return
+  end
+  
+  local cells = get_sorted_cells()
+  
+  if index < 1 or index > #cells then
+    utils.notify_warn(string.format("Cell %d does not exist (have %d cells)", index, #cells))
+    return
+  end
+  
+  local target_cell = cells[index]
+  vim.api.nvim_win_set_cursor(0, { target_cell.begin.lineno + 1, target_cell.begin.colno })
+end
+
+--- Toggle virtual text output
+function M.molten_toggle_virtual()
+  if not M.initialized then
+    return
+  end
+  
+  -- Toggle the option
+  M.options.virt_text_output = not M.options.virt_text_output
+  
+  local bufnr = vim.api.nvim_get_current_buf()
+  local kernel_ids = M.buffers[bufnr]
+  
+  if not kernel_ids then
+    return
+  end
+  
+  for _, kernel_id in ipairs(kernel_ids) do
+    local molten_kernel = M.molten_kernels[kernel_id]
+    if molten_kernel then
+      if M.options.virt_text_output then
+        -- Show virtual text for all cells
+        for cell, output_buf in pairs(molten_kernel.outputs) do
+          output_buf:show_virtual_output(cell.end_)
+        end
+      else
+        -- Hide all virtual text
+        molten_kernel:clear_virt_outputs()
+      end
+    end
+  end
+  
+  utils.notify_info("Virtual text output: " .. (M.options.virt_text_output and "ON" or "OFF"))
+end
+
 --- Get available kernels
 ---@return table
 function M.molten_available_kernels()
@@ -694,12 +851,33 @@ function M.setup()
     M.molten_delete(opts.bang)
   end, { bang = true })
   
+  vim.api.nvim_create_user_command("MoltenNext", function(opts)
+    local count = tonumber(opts.args) or 1
+    M.molten_next(count)
+  end, { nargs = "?" })
+  
+  vim.api.nvim_create_user_command("MoltenPrev", function(opts)
+    local count = tonumber(opts.args) or 1
+    M.molten_prev(count)
+  end, { nargs = "?" })
+  
+  vim.api.nvim_create_user_command("MoltenGoto", function(opts)
+    local index = tonumber(opts.args)
+    if index then
+      M.molten_goto(index)
+    else
+      utils.notify_error("MoltenGoto requires a cell number")
+    end
+  end, { nargs = 1 })
+  
+  vim.api.nvim_create_user_command("MoltenToggleVirtual", function()
+    M.molten_toggle_virtual()
+  end, {})
+  
   -- TODO: Add remaining commands:
   -- - MoltenEvaluateOperator
   -- - MoltenEvaluateArgument
   -- - MoltenEvaluateRange
-  -- - MoltenNext/Prev/Goto
-  -- - MoltenToggleVirtual
   -- - MoltenSave/Load
   -- - MoltenImportOutput/ExportOutput
   -- - MoltenInfo
