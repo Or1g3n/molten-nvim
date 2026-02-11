@@ -243,7 +243,7 @@ class Output:
             c1.text = _resolve_cr(c1.text)
             c1.jupyter_data = {"text/plain": c1.text}
             self.chunks.pop()
-        elif len(self.chunks) > 0 and isinstance((c1 := self.chunks[0]), TextOutputChunk):
+        elif len(self.chunks) > 0 and isinstance((c1 := self.chunks[-1]), TextOutputChunk):
             c1.text = _resolve_cr(c1.text)
             c1.jupyter_data = {"text/plain": c1.text}
 
