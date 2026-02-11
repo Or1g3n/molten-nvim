@@ -122,7 +122,7 @@ class OutputBuffer:
             time = ""
 
         if output.status == OutputStatus.NEW:
-            return f"Out[_]: Never Run"
+            return "Out[_]: Never Run"
         else:
             return f"{old}Out[{execution_count}]: {status} {time}".rstrip()
 

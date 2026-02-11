@@ -288,7 +288,6 @@ def to_outputchunk(
 
         # NOTE: import this to cause an import exception which we catch. instead of a different
         # error in `write_image`
-        import kaleido  # type: ignore
         import json
 
         figure = from_json(json.dumps(figure_json))
@@ -345,7 +344,7 @@ def to_outputchunk(
         if data is not None and data.get("text/plain"):
             chunk = _from_plaintext(data["text/plain"])
         else:
-            if data == None:
+            if data is None:
                 data = {}
             chunk = BadOutputChunk(list(data.keys()))
 

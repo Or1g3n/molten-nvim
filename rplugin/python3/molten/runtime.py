@@ -260,8 +260,7 @@ class JupyterRuntime:
 
         assert isinstance(
             self.kernel_client,
-            (jupyter_client.blocking.client.BlockingKernelClient,
-             JupyterAPIClient),
+            (jupyter_client.blocking.client.BlockingKernelClient, JupyterAPIClient),
         )
 
         try:
