@@ -61,7 +61,7 @@ def _resolve_cr(text: str) -> str:
                 if len(segment) >= len(result):
                     result = segment
                 else:
-                    result = segment + result[len(segment):]
+                    result = segment + result[len(segment) :]
             # If line ended with \r (empty last segment), preserve it for future merges
             if segments[-1] == "" and result:
                 result += "\r"
