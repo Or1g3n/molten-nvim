@@ -198,7 +198,9 @@ class JupyterRuntime:
                 # Normal output - strip trailing \n to avoid double newlines
                 # (TextLnOutputChunk will add one)
                 text = text.rstrip("\n")
-                self._append_chunk(output, {"text/plain": text}, {})
+                # Only create chunk if there's actual text (avoid BadOutputChunk for empty strings)
+                if text:
+                    self._append_chunk(output, {"text/plain": text}, {})
             return True
         elif message_type == "display_data":
             # XXX: consider content['transient'], if we end up saving execution
