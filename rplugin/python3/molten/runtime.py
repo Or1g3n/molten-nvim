@@ -182,12 +182,21 @@ class JupyterRuntime:
         elif message_type == "stream":
             copy_on_demand(content["text"])
             text = content["text"]
-            # Always create/append the chunk first
-            self._append_chunk(output, {"text/plain": text}, {})
-            # Then merge if there's a standalone \r (for progress bars, countdowns, etc.)
-            # This ensures proper overwrite behavior
-            if "\r" in text.replace("\r\n", ""):
+            
+            # Check for standalone \r (progress updates, not \r\n)
+            has_standalone_cr = "\r" in text.replace("\r\n", "")
+            
+            if has_standalone_cr:
+                # For progress updates, use TextOutputChunk (no added newline)
+                # This allows in-place updates like VS Code's behavior
+                chunk = TextOutputChunk(text)
+                chunk.jupyter_data = {"text/plain": text}
+                chunk.jupyter_metadata = {}
+                output.chunks.append(chunk)
                 output.merge_text_chunks()
+            else:
+                # Normal output - use TextLnOutputChunk which adds \n
+                self._append_chunk(output, {"text/plain": text}, {})
             return True
         elif message_type == "display_data":
             # XXX: consider content['transient'], if we end up saving execution
