@@ -182,19 +182,12 @@ class JupyterRuntime:
         elif message_type == "stream":
             copy_on_demand(content["text"])
             text = content["text"]
-            # Consolidate consecutive stream messages into a single chunk
-            if (
-                len(output.chunks) > 0
-                and isinstance(output.chunks[-1], TextOutputChunk)
-                and not isinstance(output.chunks[-1], ErrorOutputChunk)
-            ):
-                last_chunk = output.chunks[-1]
-                last_chunk.text += text
-                last_chunk.jupyter_data = {"text/plain": last_chunk.text}
-                if "\r" in text:
-                    output.merge_text_chunks()
-            else:
-                self._append_chunk(output, {"text/plain": text}, {})
+            # Always create/append the chunk first
+            self._append_chunk(output, {"text/plain": text}, {})
+            # Then merge if there's a standalone \r (for progress bars, countdowns, etc.)
+            # This ensures proper overwrite behavior
+            if "\r" in text.replace("\r\n", ""):
+                output.merge_text_chunks()
             return True
         elif message_type == "display_data":
             # XXX: consider content['transient'], if we end up saving execution

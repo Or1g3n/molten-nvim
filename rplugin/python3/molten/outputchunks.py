@@ -48,12 +48,24 @@ ANSI_CODE_REGEX = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 def _resolve_cr(text: str) -> str:
-    """Resolve carriage returns within text: for each line, keep only text after the last \r."""
+    """Resolve carriage returns within text: simulate terminal overwrite behavior."""
     lines = text.split("\n")
     processed = []
     for line in lines:
         if "\r" in line:
-            line = line.rsplit("\r", 1)[-1]
+            # Simulate terminal: split by \r and overlay each segment
+            segments = line.split("\r")
+            result = ""
+            for segment in segments:
+                # Each segment after \r overwrites from the start of the line
+                if len(segment) >= len(result):
+                    result = segment
+                else:
+                    result = segment + result[len(segment):]
+            # If line ended with \r (empty last segment), preserve it for future merges
+            if segments[-1] == "" and result:
+                result += "\r"
+            line = result
         processed.append(line)
     return "\n".join(processed)
 
@@ -61,14 +73,12 @@ def _resolve_cr(text: str) -> str:
 def clean_up_text(text: str) -> str:
     text = ANSI_CODE_REGEX.sub("", text)
     text = text.replace("\r\n", "\n")
-    # Process standalone \r: simulate carriage return (keep text after last \r per line)
+    # Process standalone \r: simulate carriage return with proper overwrite
+    text = _resolve_cr(text)
+    # Remove any trailing \r from each line for final display
     lines = text.split("\n")
-    processed = []
-    for line in lines:
-        if "\r" in line:
-            line = line.rsplit("\r", 1)[-1]
-        processed.append(line)
-    text = "\n".join(processed)
+    lines = [line.rstrip("\r") for line in lines]
+    text = "\n".join(lines)
     return text
 
 
