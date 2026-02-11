@@ -131,11 +131,10 @@ def save(molten_kernel: MoltenKernel, nvim_buffer: int) -> Dict[str, Any]:
                 "success": output.output.success,
                 "chunks": [
                     {
-                        "data": chunk.jupyter_data,
-                        "metadata": chunk.jupyter_metadata,
+                        "data": chunk.jupyter_data if chunk.jupyter_data is not None else {},
+                        "metadata": chunk.jupyter_metadata if chunk.jupyter_metadata is not None else {},
                     }
                     for chunk in output.output.chunks
-                    if chunk.jupyter_data is not None and chunk.jupyter_metadata is not None
                 ],
             }
             for span, output in molten_kernel.outputs.items()
