@@ -195,7 +195,9 @@ class JupyterRuntime:
                 output.chunks.append(chunk)
                 output.merge_text_chunks()
             else:
-                # Normal output - use TextLnOutputChunk which adds \n
+                # Normal output - strip trailing \n to avoid double newlines
+                # (TextLnOutputChunk will add one)
+                text = text.rstrip("\n")
                 self._append_chunk(output, {"text/plain": text}, {})
             return True
         elif message_type == "display_data":
