@@ -182,10 +182,10 @@ class JupyterRuntime:
         elif message_type == "stream":
             copy_on_demand(content["text"])
             text = content["text"]
-            
+
             # Check for standalone \r (progress updates, not \r\n)
             has_standalone_cr = "\r" in text.replace("\r\n", "")
-            
+
             if has_standalone_cr:
                 # For progress updates, use TextOutputChunk (no added newline)
                 # This allows in-place updates like VS Code's behavior
