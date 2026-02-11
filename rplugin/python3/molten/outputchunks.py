@@ -48,27 +48,19 @@ ANSI_CODE_REGEX = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 def _resolve_cr(text: str) -> str:
-    """Resolve carriage returns within text: simulate terminal overwrite behavior."""
+    """Resolve carriage returns within text: keep text after last \\r per line."""
     lines = text.split("\n")
     processed = []
     for line in lines:
         if "\r" in line:
-            # Simulate terminal: split by \r and overlay each segment
-            segments = line.split("\r")
-            result = ""
-            for segment in segments:
-                # Each segment after \r overwrites from the start of the line
-                # If segment is shorter than result, it overwrites the beginning only,
-                # preserving the remainder (e.g., "hello" + "\r" + "hi" = "hillo")
-                if len(segment) >= len(result):
-                    result = segment
-                else:
-                    result = segment + result[len(segment) :]
-            # If line ended with \r (split produces empty last segment), preserve it
-            # for future merges (e.g., progress bars need \r between updates)
-            if segments[-1] == "" and result:
-                result += "\r"
-            line = result
+            # Split by \r and keep the last segment
+            parts = line.split("\r")
+            # If line ends with \r (empty last part), take second-to-last and preserve \r
+            if parts[-1] == "" and len(parts) > 1:
+                line = parts[-2] + "\r"
+            else:
+                # Otherwise take the last part (text after last \r)
+                line = parts[-1]
         processed.append(line)
     return "\n".join(processed)
 
