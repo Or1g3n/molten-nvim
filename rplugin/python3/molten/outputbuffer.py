@@ -5,7 +5,7 @@ from pynvim import Nvim
 from pynvim.api import Buffer, Window
 
 from molten.images import Canvas
-from molten.outputchunks import ImageOutputChunk, Output, OutputStatus
+from molten.outputchunks import ImageOutputChunk, Output, OutputStatus, _resolve_cr
 from molten.options import MoltenOptions
 from molten.position import DynamicPosition, Position
 from molten.utils import notify_error
@@ -222,11 +222,24 @@ class OutputBuffer:
                 lines_str += chunktext
                 lineno += chunktext.count("\n")
                 virtual_lines += virt_lines
-                x = len(lines_str) - lines_str.rfind("\n")
+                # Fix G1: Correct x column tracking
+                last_newline = lines_str.rfind("\n")
+                if last_newline == -1:
+                    x = len(lines_str)
+                else:
+                    x = len(lines_str) - last_newline - 1
+
+            # Fix A6: Safety net to resolve any remaining \r characters
+            lines_str = _resolve_cr(lines_str)
 
             limit = self.options.limit_output_chars
             if limit and len(lines_str) > limit:
-                lines_str = lines_str[:limit]
+                # Fix D1: Find the last newline before the limit to avoid cutting mid-line
+                last_newline = lines_str.rfind("\n", 0, limit)
+                if last_newline > 0:
+                    lines_str = lines_str[:last_newline]
+                else:
+                    lines_str = lines_str[:limit]
                 lines_str += f"\n...truncated to {limit} chars\n"
 
             lines = lines_str.split("\n")
