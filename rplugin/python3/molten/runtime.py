@@ -121,7 +121,7 @@ class JupyterRuntime:
         if output.success:
             chunk = to_outputchunk(self.nvim, self._alloc_file, data, metadata, self.options)
             output.chunks.append(chunk)
-            if isinstance(chunk, TextOutputChunk) and chunk.text.startswith("\r"):
+            if isinstance(chunk, TextOutputChunk) and "\r" in chunk.text:
                 output.merge_text_chunks()
 
     def _tick_one(self, output: Output, message_type: str, content: Dict[str, Any]) -> bool:
@@ -181,7 +181,20 @@ class JupyterRuntime:
             return True
         elif message_type == "stream":
             copy_on_demand(content["text"])
-            self._append_chunk(output, {"text/plain": content["text"]}, {})
+            text = content["text"]
+            # Consolidate consecutive stream messages into a single chunk
+            if (
+                len(output.chunks) > 0
+                and isinstance(output.chunks[-1], TextOutputChunk)
+                and not isinstance(output.chunks[-1], ErrorOutputChunk)
+            ):
+                last_chunk = output.chunks[-1]
+                last_chunk.text += text
+                last_chunk.jupyter_data = {"text/plain": last_chunk.text}
+                if "\r" in text:
+                    output.merge_text_chunks()
+            else:
+                self._append_chunk(output, {"text/plain": text}, {})
             return True
         elif message_type == "display_data":
             # XXX: consider content['transient'], if we end up saving execution
