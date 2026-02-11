@@ -48,7 +48,7 @@ ANSI_CODE_REGEX = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 def _resolve_cr(text: str) -> str:
-    """Resolve carriage returns within text: for each line, keep only text after the last \\r."""
+    """Resolve carriage returns within text: for each line, keep only text after the last \r."""
     lines = text.split("\n")
     processed = []
     for line in lines:
@@ -124,8 +124,6 @@ class TextOutputChunk(OutputChunk):
                     effective_width = win_width - col if i == 0 else win_width
                     if len(line) > effective_width:
                         extra_lines += (len(line) - effective_width + win_width - 1) // win_width
-                        if i == 0:
-                            extra_lines += 1 if len(line) > effective_width else 0
 
         return text, extra_lines
 
@@ -288,6 +286,7 @@ def to_outputchunk(
 
         # NOTE: import this to cause an import exception which we catch. instead of a different
         # error in `write_image`
+        import kaleido  # type: ignore
         import json
 
         figure = from_json(json.dumps(figure_json))
