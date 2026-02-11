@@ -58,11 +58,14 @@ def _resolve_cr(text: str) -> str:
             result = ""
             for segment in segments:
                 # Each segment after \r overwrites from the start of the line
+                # If segment is shorter than result, it overwrites the beginning only,
+                # preserving the remainder (e.g., "hello" + "\r" + "hi" = "hillo")
                 if len(segment) >= len(result):
                     result = segment
                 else:
                     result = segment + result[len(segment) :]
-            # If line ended with \r (empty last segment), preserve it for future merges
+            # If line ended with \r (split produces empty last segment), preserve it
+            # for future merges (e.g., progress bars need \r between updates)
             if segments[-1] == "" and result:
                 result += "\r"
             line = result
