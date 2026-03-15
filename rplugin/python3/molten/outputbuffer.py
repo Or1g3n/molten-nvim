@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Any, List, Optional, Tuple, Union, Callable
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 from pynvim import Nvim
 from pynvim.api import Buffer, Window
 
 from molten.images import Canvas
-from molten.outputchunks import ImageOutputChunk, Output, OutputStatus, _resolve_cr
 from molten.options import MoltenOptions
+from molten.outputchunks import ImageOutputChunk, Output, OutputStatus, resolve_cr
 from molten.position import DynamicPosition, Position
 from molten.utils import notify_error
 
@@ -230,7 +230,7 @@ class OutputBuffer:
                     x = len(lines_str) - last_newline - 1
 
             # Ensure any remaining carriage returns are resolved
-            lines_str = _resolve_cr(lines_str)
+            lines_str = resolve_cr(lines_str)
 
             limit = self.options.limit_output_chars
             if limit and len(lines_str) > limit:

@@ -1,20 +1,19 @@
+import re
+from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager
+from datetime import datetime
+from enum import Enum
 from typing import (
-    Optional,
-    Tuple,
-    List,
-    Dict,
+    IO,
     Any,
     Callable,
-    IO,
+    Dict,
+    List,
+    Optional,
+    Tuple,
 )
-from contextlib import AbstractContextManager
-from enum import Enum
-from abc import ABC, abstractmethod
-import re
-from datetime import datetime
 
 from pynvim import Nvim
-
 
 from molten.images import Canvas
 from molten.options import MoltenOptions
@@ -47,7 +46,7 @@ class OutputChunk(ABC):
 ANSI_CODE_REGEX = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
-def _resolve_cr(text: str) -> str:
+def resolve_cr(text: str) -> str:
     """Resolve carriage returns within text: keep text after last \\r per line."""
     lines = text.split("\n")
     processed = []
@@ -69,7 +68,7 @@ def clean_up_text(text: str) -> str:
     text = ANSI_CODE_REGEX.sub("", text)
     text = text.replace("\r\n", "\n")
     # Process standalone \r: simulate carriage return with proper overwrite
-    text = _resolve_cr(text)
+    text = resolve_cr(text)
     # Remove any trailing \r from each line for final display
     lines = text.split("\n")
     lines = [line.rstrip("\r") for line in lines]
@@ -245,11 +244,11 @@ class Output:
             and isinstance((c2 := self.chunks[-1]), TextOutputChunk)
         ):
             c1.text += c2.text
-            c1.text = _resolve_cr(c1.text)
+            c1.text = resolve_cr(c1.text)
             c1.jupyter_data = {"text/plain": c1.text}
             self.chunks.pop()
         elif len(self.chunks) > 0 and isinstance((c1 := self.chunks[-1]), TextOutputChunk):
-            c1.text = _resolve_cr(c1.text)
+            c1.text = resolve_cr(c1.text)
             c1.jupyter_data = {"text/plain": c1.text}
 
 
@@ -287,12 +286,12 @@ def to_outputchunk(
             return _to_image_chunk(path)
 
     def _from_application_plotly(figure_json: Any) -> OutputChunk:
-        from plotly.io import from_json
+        import json
 
         # NOTE: import this to cause an import exception which we catch. instead of a different
         # error in `write_image`
         import kaleido  # type: ignore
-        import json
+        from plotly.io import from_json
 
         figure = from_json(json.dumps(figure_json))
 
